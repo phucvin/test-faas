@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"math/rand"
 
 	"call"
 )
@@ -14,7 +15,10 @@ type RandomRes struct {
 }
 
 func callRandom() RandomRes {
+	token := rand.Intn(1000000)
+	fmt.Printf("calling random, token-%d\n", token)
 	resS := call.JSON("random2", "{}")
+	fmt.Printf("done calling random, token-%d\n", token)
 	var res RandomRes
 	err := json.Unmarshal([]byte(resS), &res)
 	if err != nil {

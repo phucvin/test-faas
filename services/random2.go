@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"time"
 )
 
 type Req struct {
@@ -36,6 +37,8 @@ func HandleJSON(message string) string {
 }
 
 func handle(req *Req) Res {
-	randomValue := fmt.Sprintf("Bob %d", rand.Intn(1000000))
+	r := rand.Intn(1000)
+	time.Sleep(time.Duration(r) * time.Millisecond)
+	randomValue := fmt.Sprintf("Bob %d", r)
 	return Res{RandomValue: &randomValue}
 }
