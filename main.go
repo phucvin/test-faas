@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
@@ -17,16 +19,16 @@ func hello(w http.ResponseWriter, req *http.Request) {
     fmt.Fprintf(w, "hello\n")
 }
 
-func Main() {
-    http.HandleFunc("/hello", hello)
+func Main(addr string) {
+	handler := http.HandlerFunc(hello)
 
     fmt.Println("Listening...")
-    http.ListenAndServe(":8080", nil)
+    http.ListenAndServe(addr, handler)
 }
 `
 
 func main() {
-	i := interp.New(interp.Options{})
+	i := interp.New(interp.Options{GoPath: "/workspace/go"})
 	i.Use(stdlib.Symbols)
 
 	_, err := i.Eval(src)
@@ -39,7 +41,15 @@ func main() {
 		panic(err)
 	}
 
-	fn := v.Interface().(func())
+	fn := v.Interface().(func(string))
 
-	fn()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		fn(":8080")
+	}()
+	go func() {
+		fn(":8090")
+	}()
+	wg.Wait()
 }
