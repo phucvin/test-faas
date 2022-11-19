@@ -26,7 +26,11 @@ func callRandom() RandomRes {
 
 func HandleHTTP(w http.ResponseWriter, req *http.Request) {
 	randomRes := callRandom()
-	fmt.Fprintf(w, "hello "+*randomRes.RandomValue)
+	if randomRes.Error != nil {
+		fmt.Fprintf(w, "error getting a random name to say hello")
+	} else {
+		fmt.Fprintf(w, "hello "+*randomRes.RandomValue)
+	}
 }
 
 func HandleJSON(message string) string {
