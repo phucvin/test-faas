@@ -1,7 +1,10 @@
 package main
 
 import (
-	"sync"
+	"fmt"
+	"net/http"
+	"strings"
+	"os"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -27,29 +30,38 @@ func Main(addr string) {
 }
 `
 
+var i *interp.Interpreter
+var fnMap map[string]bool
+
+func handleHTTP(w http.ResponseWriter, req *http.Request) {
+	fnName := strings.TrimPrefix(req.URL.Path, "/")
+	fmt.Println("Executing fn: " + fnName)
+
+	if _, exist := fnMap[fnName]; !exist {
+		fnCode, err := os.ReadFile("services/" + fnName + ".go")
+		if err != nil {
+    		fmt.Fprintf(w, "not found\n")
+			return
+		}
+		_, err = i.Eval(string(fnCode))
+		if err != nil {
+			panic(err)
+		}
+	}
+	fnMap[fnName] = true
+	v, _ := i.Eval(fnName + ".HandleHTTP")
+
+	fn := v.Interface().(func(http.ResponseWriter, *http.Request))
+	fn(w, req)
+}
+
 func main() {
-	i := interp.New(interp.Options{GoPath: "/workspace/go"})
+	i = interp.New(interp.Options{})
 	i.Use(stdlib.Symbols)
 
-	_, err := i.Eval(src)
-	if err != nil {
-		panic(err)
-	}
+	fnMap = make(map[string]bool)
 
-	v, err := i.Eval("code.Main")
-	if err != nil {
-		panic(err)
-	}
-
-	fn := v.Interface().(func(string))
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		fn(":8080")
-	}()
-	go func() {
-		fn(":8090")
-	}()
-	wg.Wait()
+	handler := http.HandlerFunc(handleHTTP)
+	fmt.Println("Listening...")
+    http.ListenAndServe(":8080", handler)
 }
