@@ -22,7 +22,7 @@ const (
 
 var i *interp.Interpreter
 var fnMap map[string]int
-var fnMapMutex *sync.RWMutex
+var fnMapMutex = &sync.RWMutex{}
 
 func load(fnName string) int {
 	fnMapMutex.RLock()
@@ -51,9 +51,26 @@ func load(fnName string) int {
 	return fnMap[fnName]
 }
 
+func handleAdminHTTP(w http.ResponseWriter, req *http.Request, fnName string) {
+	switch fnName {
+	case "_invalidateAll":
+		fnMapMutex.Lock()
+		defer fnMapMutex.Unlock()
+		reset()
+		fmt.Fprintf(w, "ok")
+	default:
+		fmt.Fprintf(w, "not found")
+	}
+}
+
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	fnName := strings.TrimPrefix(req.URL.Path, "/")
 	fmt.Println("Serving fn: " + fnName)
+
+	if strings.HasPrefix(fnName, "_") {
+		handleAdminHTTP(w, req, fnName)
+		return
+	}
 
 	fnLoadStatus := load(fnName)
 	if fnLoadStatus == FN_NOT_FOUND {
@@ -84,7 +101,7 @@ func callJSON(fnName string, message string) string {
 	return fn(message)
 }
 
-func main() {
+func reset() {
 	i = interp.New(interp.Options{})
 	i.Use(stdlib.Symbols)
 	additionalSymbols := make(map[string]map[string]reflect.Value)
@@ -92,9 +109,11 @@ func main() {
 	i.Use(additionalSymbols)
 
 	fnMap = make(map[string]int)
-	fnMapMutex = &sync.RWMutex{}
 	rand.Seed(time.Now().UnixNano())
+}
 
+func main() {
+	reset()
 	handler := http.HandlerFunc(handleHTTP)
 	fmt.Println("Listening...")
 	http.ListenAndServe(":8080", handler)
