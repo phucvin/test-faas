@@ -37,7 +37,7 @@ func HandleJSON(message string) string {
 }
 
 func handle(req *Req) Res {
-	r := rand.Intn(1000)
+	r := rand.Intn(5000)
 	time.Sleep(time.Duration(r) * time.Millisecond)
 	randomValue := fmt.Sprintf("Bob %d", r)
 	return Res{RandomValue: &randomValue}
