@@ -14,7 +14,7 @@ type RandomRes struct {
 }
 
 func callRandom() RandomRes {
-	resS := call.JSON("random", "{}")
+	resS := call.JSON("random2", "{}")
 	var res RandomRes
 	err := json.Unmarshal([]byte(resS), &res)
 	if err != nil {
