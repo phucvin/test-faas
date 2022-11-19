@@ -40,25 +40,32 @@ func callSomeExternalApi() (string, error) {
 }
 
 func HandleHTTP(w http.ResponseWriter, req *http.Request) {
-	var randomRes RandomRes
+	var randomRes1 RandomRes
+	var randomRes2 RandomRes
 	var externalRes string
 	var externalErr error
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
-		randomRes = callRandom()
+		randomRes1 = callRandom()
 		wg.Done()
 	}()
 	go func() {
-		externalRes, externalErr := callSomeExternalApi()
+		randomRes2 = callRandom()
+		wg.Done()
+	}()
+	go func() {
+		externalRes, externalErr = callSomeExternalApi()
 		wg.Done()
 	}()
 	wg.Wait()
 
-	if randomRes.Error != nil || externalErr != nil {
-		fmt.Fprintf(w, "error getting a random name to say hello\n\n%v\n\n%v", randomRes.Error, externalErr)
+	if randomRes1.Error != nil || randomRes2.Error != nil || externalErr != nil {
+		fmt.Fprintf(w, "error getting a random name to say hello\n\n%v\n\n%v\n\n%v",
+			randomRes1.Error, randomRes2.Error, externalErr)
 	} else {
-		fmt.Fprintf(w, "hello %s\n\nuser:\n%s", *randomRes.RandomValue, externalRes)
+		fmt.Fprintf(w, "hello %s, %s\n\nuser:\n%s",
+			*randomRes1.RandomValue, *randomRes2.RandomValue, externalRes)
 	}
 }
 
