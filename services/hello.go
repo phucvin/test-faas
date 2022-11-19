@@ -1,18 +1,18 @@
 package hello
 
 import (
-    "fmt"
-    "net/http"
-    "encoding/json"
+	"encoding/json"
+	"fmt"
+	"net/http"
 
-    "call"
+	"call"
 )
 
 func HandleHTTP(w http.ResponseWriter, req *http.Request) {
-    randomRes := call.JSON("random", "{}")
-    fmt.Fprintf(w, "hello " + randomRes)
+	randomRes := call.JSON("random", "{}")
+	fmt.Fprintf(w, "hello "+randomRes)
 }
 
 func HandleJSON(message string) string {
-	return "{\"err\": \"not implemented\"}"
+	return `{"error": "not implemented"}`
 }

@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	FN_LOAD_OK = 0
-	FN_NOT_FOUND = 1
+	FN_LOAD_OK    = 0
+	FN_NOT_FOUND  = 1
 	FN_LOAD_ERROR = 2
 )
 
@@ -72,10 +72,10 @@ func callJSON(fnName string, message string) string {
 	fmt.Println("Calling fn: " + fnName)
 	fnLoadStatus := load(fnName)
 	if fnLoadStatus == FN_NOT_FOUND {
-		return "{\"err\": \"not found\"}"
+		return `{"error": "not found"}`
 	}
 	if fnLoadStatus == FN_LOAD_ERROR {
-		return "{\"err\": \"error loading\"}"
+		return `{"error": "error loading"}`
 	}
 	v, _ := i.Eval(fnName + ".HandleJSON")
 	fn := v.Interface().(func(string) string)
@@ -86,7 +86,7 @@ func main() {
 	i = interp.New(interp.Options{})
 	i.Use(stdlib.Symbols)
 	additionalSymbols := make(map[string]map[string]reflect.Value)
-	additionalSymbols["call/call"] = map[string]reflect.Value{"JSON": reflect.ValueOf(callJSON) }
+	additionalSymbols["call/call"] = map[string]reflect.Value{"JSON": reflect.ValueOf(callJSON)}
 	i.Use(additionalSymbols)
 
 	fnMap = make(map[string]int)
