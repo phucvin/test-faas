@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -91,6 +93,7 @@ func main() {
 
 	fnMap = make(map[string]int)
 	fnMapMutex = &sync.RWMutex{}
+	rand.Seed(time.Now().UnixNano())
 
 	handler := http.HandlerFunc(handleHTTP)
 	fmt.Println("Listening...")

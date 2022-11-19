@@ -12,8 +12,8 @@ type Req struct {
 }
 
 type Res struct {
-	Error *string `json:"error,omitempty"`
-	Value *string `json:"randomValue"`
+	Error       *string `json:"error,omitempty"`
+	RandomValue *string `json:"randomValue"`
 }
 
 func HandleHTTP(w http.ResponseWriter, req *http.Request) {
@@ -36,6 +36,6 @@ func HandleJSON(message string) string {
 }
 
 func handle(req *Req) Res {
-	value := fmt.Sprintf("John %d", rand.Intn(100))
-	return Res{Value: &value}
+	randomValue := fmt.Sprintf("John %d", rand.Intn(100))
+	return Res{RandomValue: &randomValue}
 }
