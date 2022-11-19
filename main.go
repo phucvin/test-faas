@@ -3,56 +3,60 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
 
-const src = `
-package code
-
-import (
-    "fmt"
-    "net/http"
-)
-
-func hello(w http.ResponseWriter, req *http.Request) {
-    fmt.Fprintf(w, "hello\n")
-}
-
-func Main(addr string) {
-	handler := http.HandlerFunc(hello)
-
-    fmt.Println("Listening...")
-    http.ListenAndServe(addr, handler)
-}
-`
-
 var i *interp.Interpreter
 var fnMap map[string]bool
+var fnMapMutex = &sync.RWMutex{}
+
+func load(fnName string) bool {
+	fnMapMutex.RLock()
+	if val, exist := fnMap[fnName]; exist {
+		fnMapMutex.RUnlock()
+		return val
+	}
+
+	fnMapMutex.RUnlock()
+	fnMapMutex.Lock()
+	defer fnMapMutex.Unlock()
+
+	fmt.Println("Reading fn code: " + fnName)
+	fnCode, err := os.ReadFile("services/" + fnName + ".go")
+	if err != nil {
+		fnMap[fnName] = false
+		return false
+	}
+
+	_, err = i.Eval(string(fnCode))
+	if err != nil {
+		panic(err)
+	}
+	fnMap[fnName] = true
+	return true
+}
 
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	fnName := strings.TrimPrefix(req.URL.Path, "/")
 	fmt.Println("Executing fn: " + fnName)
 
-	if _, exist := fnMap[fnName]; !exist {
-		fnCode, err := os.ReadFile("services/" + fnName + ".go")
-		if err != nil {
-    		fmt.Fprintf(w, "not found\n")
-			return
-		}
-		_, err = i.Eval(string(fnCode))
-		if err != nil {
-			panic(err)
-		}
+	if !load(fnName) {
+		fmt.Fprintf(w, "not found\n")
+		return
 	}
-	fnMap[fnName] = true
 	v, _ := i.Eval(fnName + ".HandleHTTP")
 
 	fn := v.Interface().(func(http.ResponseWriter, *http.Request))
 	fn(w, req)
+}
+
+func handleJSON(fnName string, message string) string {
+	return ""
 }
 
 func main() {
@@ -63,5 +67,5 @@ func main() {
 
 	handler := http.HandlerFunc(handleHTTP)
 	fmt.Println("Listening...")
-    http.ListenAndServe(":8080", handler)
+	http.ListenAndServe(":8080", handler)
 }
