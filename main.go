@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -11,11 +12,17 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 )
 
-var i *interp.Interpreter
-var fnMap map[string]bool
-var fnMapMutex = &sync.RWMutex{}
+const (
+	FN_LOAD_OK = 0
+	FN_NOT_FOUND = 1
+	FN_LOAD_ERROR = 2
+)
 
-func load(fnName string) bool {
+var i *interp.Interpreter
+var fnMap map[string]int
+var fnMapMutex *sync.RWMutex
+
+func load(fnName string) int {
 	fnMapMutex.RLock()
 	if val, exist := fnMap[fnName]; exist {
 		fnMapMutex.RUnlock()
@@ -26,27 +33,33 @@ func load(fnName string) bool {
 	fnMapMutex.Lock()
 	defer fnMapMutex.Unlock()
 
-	fmt.Println("Reading fn code: " + fnName)
+	fmt.Println("Reading fn: " + fnName)
 	fnCode, err := os.ReadFile("services/" + fnName + ".go")
 	if err != nil {
-		fnMap[fnName] = false
-		return false
+		fnMap[fnName] = FN_NOT_FOUND
+		return 0
 	}
 
+	fnMap[fnName] = FN_LOAD_OK
 	_, err = i.Eval(string(fnCode))
 	if err != nil {
-		panic(err)
+		fnMap[fnName] = FN_LOAD_ERROR
+		fmt.Println(err)
 	}
-	fnMap[fnName] = true
-	return true
+	return fnMap[fnName]
 }
 
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	fnName := strings.TrimPrefix(req.URL.Path, "/")
-	fmt.Println("Executing fn: " + fnName)
+	fmt.Println("Serving fn: " + fnName)
 
-	if !load(fnName) {
-		fmt.Fprintf(w, "not found\n")
+	fnLoadStatus := load(fnName)
+	if fnLoadStatus == FN_NOT_FOUND {
+		fmt.Fprintf(w, "not found")
+		return
+	}
+	if fnLoadStatus == FN_LOAD_ERROR {
+		fmt.Fprintf(w, "error loading")
 		return
 	}
 	v, _ := i.Eval(fnName + ".HandleHTTP")
@@ -55,15 +68,29 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	fn(w, req)
 }
 
-func handleJSON(fnName string, message string) string {
-	return ""
+func callJSON(fnName string, message string) string {
+	fmt.Println("Calling fn: " + fnName)
+	fnLoadStatus := load(fnName)
+	if fnLoadStatus == FN_NOT_FOUND {
+		return "{\"err\": \"not found\"}"
+	}
+	if fnLoadStatus == FN_LOAD_ERROR {
+		return "{\"err\": \"error loading\"}"
+	}
+	v, _ := i.Eval(fnName + ".HandleJSON")
+	fn := v.Interface().(func(string) string)
+	return fn(message)
 }
 
 func main() {
 	i = interp.New(interp.Options{})
 	i.Use(stdlib.Symbols)
+	additionalSymbols := make(map[string]map[string]reflect.Value)
+	additionalSymbols["call/call"] = map[string]reflect.Value{"JSON": reflect.ValueOf(callJSON) }
+	i.Use(additionalSymbols)
 
-	fnMap = make(map[string]bool)
+	fnMap = make(map[string]int)
+	fnMapMutex = &sync.RWMutex{}
 
 	handler := http.HandlerFunc(handleHTTP)
 	fmt.Println("Listening...")
